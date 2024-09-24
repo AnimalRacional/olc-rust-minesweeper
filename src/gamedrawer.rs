@@ -23,7 +23,7 @@ impl MinesweeperDrawer {
         self.game.board_size.y
     }
 
-    const SQUARE_SIZE: i32 = 10;
+    const SQUARE_SIZE: i32 = 8;
     pub fn start_game(&mut self) -> Result<(), olc::Error> {
         let sw = self.calculate_screen_width();
         let sh = self.calculate_screen_height();

@@ -106,6 +106,22 @@ impl MinesweeperGame {
         }
         res
     }
+    // Basically the same code as above, refactor
+    pub fn calculate_flag_neighbours(&self, x: i32, y: i32) -> i32 {        
+        let mut res = 0;
+        let pos_moves = MinesweeperGame::pos_moves();
+        for i in pos_moves {
+            if self.is_inside(x + i.x, y + i.y) {
+                let id = self.calculate_index_by_coords(x + i.x, y + i.y);
+                if let Some(a) = self.board.get(id as usize) {
+                    if let Squares::FlaggedSafe | Squares::FlaggedBomb = a {
+                        res += 1;
+                    }
+                }
+            }
+        }
+        res
+    }
 }
 
 // Game
@@ -122,14 +138,25 @@ impl MinesweeperGame {
     pub fn win(&mut self){
         self.game_state = State::Won;
     }
-
-    pub fn reveal(&mut self, xpos: i32, ypos: i32){
-        let id = self.calculate_index_by_coords(xpos, ypos) as usize;
+    
+    fn reveal_mayclick(&mut self, xpos: i32, ypos: i32, click: bool){
+        let id: usize = self.calculate_index_by_coords(xpos, ypos) as usize;
         self.board[id] = match &self.board[id] {
             Squares::ClosedBomb => { self.lose(); Squares::ClosedBomb }
             Squares::ClosedSafe => { 
                 self.reveal_around(xpos, ypos);
                 Squares::OpenSafe 
+            }
+            // If clicking on a number
+            Squares::OpenSafe => {
+                if click{
+                    let bombs_around: i32 = self.calculate_neighbours(xpos, ypos);
+                    let flags_around: i32 = self.calculate_flag_neighbours(xpos, ypos);
+                    if bombs_around == flags_around {
+                        self.reveal_around_ignore(xpos, ypos, true);
+                    }
+                }
+                Squares::OpenSafe
             }
             other => { *other }
         };
@@ -138,18 +165,30 @@ impl MinesweeperGame {
         }
     }
 
+    pub fn reveal(&mut self, xpos: i32, ypos: i32){
+        self.reveal_mayclick(xpos, ypos, true);
+    }
+
     fn reveal_around(&mut self, x: i32, y: i32){
+        self.reveal_around_ignore(x, y, false);
+    }   
+
+    fn reveal_around_ignore(&mut self, x: i32, y: i32, ignore_bombs: bool){
         let pos_moves = MinesweeperGame::pos_moves();
         if self.is_inside(x, y){
-            if self.calculate_neighbours(x, y) <= 0 {
+            if (if ignore_bombs { true } else { self.calculate_neighbours(x, y) <= 0 }) {
                 for i in pos_moves {
                     if self.is_inside(x + i.x, y + i.y) {
                         let pos = self.calculate_index_by_coords(x + i.x, y + i.y);
-                        if let Some(_) = self.board.get(pos as usize){
-                            if let Squares::ClosedSafe = self.board[pos as usize] {
+                        if let Some(a) = self.board.get(pos as usize){
+                            if let Squares::ClosedSafe = a {
                                 self.board[pos as usize] = Squares::OpenSafe;
                                 //println!("Started revealing at ({}, {}) with {} neighbours origin ({}, {})", x + i.x, y + i.y, self.calculate_neighbours(x, y), x, y);
                                 self.reveal_around(x + i.x, y + i.y);
+                            }
+                            else if let Squares::ClosedBomb = a {
+                                self.lose();
+                                return;
                             }
                         }
                     }
