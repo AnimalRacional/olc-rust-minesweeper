@@ -28,7 +28,7 @@ pub struct Point {
 }
 
 impl Point{
-    fn new(x: i32, y: i32) -> Point{
+    pub fn new(x: i32, y: i32) -> Point{
         Point{ x: x, y: y }
     }
 }
@@ -48,7 +48,7 @@ impl MinesweeperGame {
 
     fn reset_board(&mut self){
         self.board.clear();
-        let board_size = self.board_size.x * self.board_size.y;
+        let board_size: i32 = self.board_size.x * self.board_size.y;
         for _ in 0..board_size {
             self.board.push(Squares::ClosedSafe);
         }
@@ -89,38 +89,46 @@ impl MinesweeperGame {
     pub fn is_inside(&self, x: i32, y: i32) -> bool{
         x < self.board_size.x && x >= 0 && y < self.board_size.y && y >= 0
     }
-
-    pub fn calculate_neighbours(&self, x: i32, y: i32) -> i32 {        
+    
+    // Basically the same code as above, refactor
+    pub fn calculate_generic_neighbours(&self, x: i32, y: i32, flagged_safe: bool, 
+                                    flagged_bomb: bool, closed_safe: bool, closed_bomb: bool, 
+                                    open_safe: bool) -> i32 {
         let mut res = 0;
         let pos_moves = MinesweeperGame::pos_moves();
         for i in pos_moves {
             if self.is_inside(x + i.x, y + i.y) {
                 let id = self.calculate_index_by_coords(x + i.x, y + i.y);
                 if let Some(a) = self.board.get(id as usize) {
-                    if let Squares::ClosedBomb | Squares::FlaggedBomb = a {
+                    let mut found = false;
+                    if flagged_safe && (Squares::FlaggedSafe == *a){
+                        found = true;
+                    }
+                    else if flagged_bomb && (Squares::FlaggedBomb == *a){
+                        found = true;
+                    }
+                    else if closed_safe && (Squares::ClosedSafe == *a){
+                        found = true;
+                    }
+                    else if closed_bomb && (Squares::ClosedBomb == *a){
+                        found = true;
+                    }
+                    else if open_safe && (Squares::OpenSafe == *a){
+                        found = true;
+                    }
+                    if found {
                         res += 1;
-                        //println!("Found for {} {} at {} {}", x,y,x + i.x, y + i.y);
                     }
                 }
             }
         }
         res
     }
-    // Basically the same code as above, refactor
-    pub fn calculate_flag_neighbours(&self, x: i32, y: i32) -> i32 {        
-        let mut res = 0;
-        let pos_moves = MinesweeperGame::pos_moves();
-        for i in pos_moves {
-            if self.is_inside(x + i.x, y + i.y) {
-                let id = self.calculate_index_by_coords(x + i.x, y + i.y);
-                if let Some(a) = self.board.get(id as usize) {
-                    if let Squares::FlaggedSafe | Squares::FlaggedBomb = a {
-                        res += 1;
-                    }
-                }
-            }
-        }
-        res
+    pub fn calculate_neighbours(&self, x: i32, y: i32) -> i32 {        
+        self.calculate_generic_neighbours(x, y, false, true, false, true, false)
+    }
+    pub fn calculate_flag_neighbours(&self, x: i32, y: i32) -> i32{
+        self.calculate_generic_neighbours(x, y, true, true, false, false, false)
     }
 }
 
